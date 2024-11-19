@@ -1,15 +1,12 @@
-{{- if .Values.keycloak.persistence.enabled }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ .Values.global.applicationName }}-data
+  name: {{ .Release.Name }}-keycloak-pvc
   labels:
-    app: {{ .Values.global.applicationName }}
+    app: keycloak
 spec:
   accessModes:
-    - {{ .Values.keycloak.persistence.accessMode }}
+    - ReadWriteOnce
   resources:
     requests:
-      storage: {{ .Values.keycloak.persistence.size }}
-  storageClassName: {{ .Values.keycloak.persistence.storageClass }}
-{{- end }}
+      storage: {{ .Values.persistence.size }}

@@ -1,61 +1,52 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Values.global.applicationName }}
+  name: {{ .Release.Name }}-keycloak
   labels:
-    app: {{ .Values.global.applicationName }}
+    app: keycloak
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
 spec:
-  replicas: {{ .Values.keycloak.replicas }}
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: {{ .Values.global.applicationName }}
+      app: keycloak
   template:
     metadata:
       labels:
-        app: {{ .Values.global.applicationName }}
+        app: keycloak
     spec:
       containers:
-      - name: {{ .Values.global.applicationName }}
-        image: "{{ .Values.keycloak.image.repository }}:{{ .Values.keycloak.image.tag }}"
-        imagePullPolicy: {{ .Values.keycloak.image.pullPolicy }}
-        args:
-          - start
-          - --optimized
-          - --http-enabled=true
-          - --hostname-strict=false
-          - --db=postgres
-          - --db-url-host=postgres-service
-          - --db-url-port=5432
-          - --db-url-database=keycloak
-        env:
-        {{- range .Values.keycloak.env }}
-        - name: {{ .name }}
-          {{- if .value }}
-          value: {{ .value | quote }}
-          {{- end }}
-          {{- if .valueFrom }}
-          valueFrom:
-            {{- toYaml .valueFrom | nindent 12 }}
-          {{- end }}
-        {{- end }}
-        ports:
-        - name: http
-          containerPort: 8080
-        resources:
-          requests:
-            cpu: {{ .Values.keycloak.resources.requests.cpu }}
-            memory: {{ .Values.keycloak.resources.requests.memory }}
-          limits:
-            cpu: {{ .Values.keycloak.resources.limits.cpu }}
-            memory: {{ .Values.keycloak.resources.limits.memory }}
-        {{- if .Values.keycloak.persistence.enabled }}
-        volumeMounts:
-        - name: data
-          mountPath: /opt/keycloak/data
-        {{- end }}
-      {{- if .Values.keycloak.persistence.enabled }}
+        - name: keycloak
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: PROXY_ADDRESS_FORWARDING
+              value: "true"
+            - name: DB_VENDOR
+              value: "{{ .Values.database.vendor }}"
+            - name: DB_ADDR
+              value: "{{ .Values.database.url }}"
+            - name: DB_USER
+              value: "{{ .Values.database.username }}"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-keycloak-secret
+                  key: db-password
+          volumeMounts:
+            - name: keycloak-data
+              mountPath: /opt/keycloak/data
+          resources:
+            limits:
+              memory: {{ .Values.resources.limits.memory }}
+              cpu: {{ .Values.resources.limits.cpu }}
+            requests:
+              memory: {{ .Values.resources.requests.memory }}
+              cpu: {{ .Values.resources.requests.cpu }}
       volumes:
-      - name: data
-        persistentVolumeClaim:
-          claimName: {{ .Values.global.applicationName }}-data
-      {{- end }}
+        - name: keycloak-data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-keycloak-pvc
