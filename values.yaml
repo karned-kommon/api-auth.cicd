@@ -1,0 +1,67 @@
+global:
+  applicationName: keycloak
+keycloak:
+  image:
+    repository: quay.io/keycloak/keycloak
+    tag: 23.0.1
+    pullPolicy: IfNotPresent
+  replicas: 1
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1
+      memory: 2Gi
+  service:
+    type: ClusterIP
+    port: 8080
+  ingress:
+    enabled: true
+    host: iam.karned.bzh
+    path: /
+  database:
+    type: postgres
+    host: postgres-service
+    port: 5432
+    name: keycloak
+    username: keycloak
+    passwordSecret:
+      name: keycloak-db-secret
+      key: DB_PASSWORD
+  persistence:
+    enabled: true
+    storageClass: csi-cinder-high-speed
+    accessMode: ReadWriteOnce
+    size: 5Gi
+  env:
+    - name: KC_HOSTNAME
+      value: iam.karned.bzh
+    - name: KC_HOSTNAME_STRICT
+      value: "false"
+    - name: KC_HOSTNAME_STRICT_HTTPS
+      value: "true"
+    - name: KEYCLOAK_ADMIN
+      valueFrom:
+        secretKeyRef:
+          name: keycloak-admin-secret
+          key: ADMIN_USERNAME
+    - name: KEYCLOAK_ADMIN_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: keycloak-admin-secret
+          key: ADMIN_PASSWORD
+    - name: KC_DB
+      value: postgres
+    - name: KC_DB_URL
+      value: jdbc:postgresql://$(KC_DB_HOST):$(KC_DB_PORT)/$(KC_DB_DATABASE)
+    - name: KC_DB_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: keycloak-db-secret
+          key: DB_USERNAME
+    - name: KC_DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: keycloak-db-secret
+          key: DB_PASSWORD

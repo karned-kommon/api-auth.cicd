@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.global.applicationName }}
+  labels:
+    app: {{ .Values.global.applicationName }}
+spec:
+  replicas: {{ .Values.keycloak.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.global.applicationName }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.global.applicationName }}
+    spec:
+      containers:
+      - name: {{ .Values.global.applicationName }}
+        image: "{{ .Values.keycloak.image.repository }}:{{ .Values.keycloak.image.tag }}"
+        imagePullPolicy: {{ .Values.keycloak.image.pullPolicy }}
+        args:
+          - start
+          - --optimized
+          - --http-enabled=true
+          - --hostname-strict=false
+          - --db=postgres
+          - --db-url-host=postgres-service
+          - --db-url-port=5432
+          - --db-url-database=keycloak
+        env:
+        {{- range .Values.keycloak.env }}
+        - name: {{ .name }}
+          {{- if .value }}
+          value: {{ .value | quote }}
+          {{- end }}
+          {{- if .valueFrom }}
+          valueFrom:
+            {{- toYaml .valueFrom | nindent 12 }}
+          {{- end }}
+        {{- end }}
+        ports:
+        - name: http
+          containerPort: 8080
+        resources:
+          requests:
+            cpu: {{ .Values.keycloak.resources.requests.cpu }}
+            memory: {{ .Values.keycloak.resources.requests.memory }}
+          limits:
+            cpu: {{ .Values.keycloak.resources.limits.cpu }}
+            memory: {{ .Values.keycloak.resources.limits.memory }}
+        {{- if .Values.keycloak.persistence.enabled }}
+        volumeMounts:
+        - name: data
+          mountPath: /opt/keycloak/data
+        {{- end }}
+      {{- if .Values.keycloak.persistence.enabled }}
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ .Values.global.applicationName }}-data
+      {{- end }}
