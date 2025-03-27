@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: karned-api-auth
+  namespace: argocd
+spec:
+  project: karned
+  source:
+    repoURL: "https://github.com/karned-rekipe/api-auth.cicd.git"
+    targetRevision: main
+    path: CD/helm
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: karned
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

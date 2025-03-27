@@ -1,0 +1,130 @@
+pipeline {
+    agent {
+        kubernetes {
+            yaml """
+apiVersion: v1
+kind: Pod
+spec:
+  containers:
+  - name: docker
+    image: docker:24.0.2
+    command: ["cat"]
+    tty: true
+    volumeMounts:
+    - mountPath: /var/run/docker.sock
+      name: docker-sock
+  - name: python
+    image: python:3.11  # Change from slim
+    command: ["cat"]
+    tty: true
+  volumes:
+  - name: docker-sock
+    hostPath:
+      path: /var/run/docker.sock
+"""
+        }
+    }
+
+    environment {
+        API_NAME = 'api-auth'
+        URL_REPO = 'https://github.com/karned-kommon/api-auth.git'
+        BRANCH_NAME = "${env.BRANCH_NAME ?: 'main'}"
+    }
+
+    stages {
+        stage('Clone Repository') {
+            steps {
+                script {
+                    echo "Cloning branch: ${BRANCH_NAME}"
+                    git branch: BRANCH_NAME, url: URL_REPO
+                }
+            }
+        }
+
+        stage('Detect Branch') {
+            steps {
+                script {
+                    env.BRANCH_NAME = sh(
+                        script: "git rev-parse --abbrev-ref HEAD",
+                        returnStdout: true
+                    ).trim()
+                    echo "Branch detected: ${env.BRANCH_NAME}"
+                }
+            }
+        }
+
+        stage('Checkout') {
+            steps {
+                script {
+                    echo "Fetching and checking out branch: ${env.BRANCH_NAME}"
+                    sh """
+                        git fetch origin ${env.BRANCH_NAME}
+                        git checkout ${env.BRANCH_NAME}
+                    """
+                }
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                container('python') {
+                    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                        sh '''
+                        python -m venv ${WORKSPACE}/venv
+                        . ${WORKSPACE}/venv/bin/activate
+                        pip install -r requirements.txt
+                        pytest --junitxml=report.xml || true
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Parse Test Results') {
+            steps {
+                container('python') {
+                    script {
+                        def testReport = readFile('report.xml').trim()
+                        def totalTests = (testReport =~ /tests="(\d+)"/)[0][1]
+                        def failures = (testReport =~ /failures="(\d+)"/)[0][1]
+                        def errors = (testReport =~ /errors="(\d+)"/)[0][1]
+
+                        echo "Total tests: ${totalTests}, Failures: ${failures}, Errors: ${errors}"
+                        writeFile file: 'test_results.txt', text: "${totalTests}:${failures}:${errors}"
+                    }
+                }
+            }
+        }
+
+        stage('Send Slack Message') {
+            steps {
+                container('python') {
+                    withCredentials([string(credentialsId: 'SLACK_WEBHOOK_URL', variable: 'SLACK_WEBHOOK_URL')]) {
+                        script {
+                            def testResults = readFile('test_results.txt').trim().split(':')
+                            env.TOTAL = testResults[0]
+                            env.FAILURES = testResults[1]
+                            env.ERRORS = testResults[2]
+
+                            sh '''
+                            pip install --disable-pip-version-check --no-cache-dir requests
+                            python -c "import os, requests;
+webhook = os.getenv('SLACK_WEBHOOK_URL');
+api_name = os.getenv('API_NAME');
+total = os.getenv('TOTAL');
+failures = os.getenv('FAILURES');
+errors = os.getenv('ERRORS');
+message = {
+    'text': f'{api_name} - Tests: {total} Failures: {failures} Errors: {errors}',
+    'username': 'Jenkins Bot',
+    'icon_emoji': ':rocket:'
+};
+requests.post(webhook, json=message)"
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

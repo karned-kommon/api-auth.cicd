@@ -1,0 +1,11 @@
+NameSpace: karned
+AppName: api-auth
+
+DockerImage: killiankopp/api-auth:1.0.0
+
+Port: 8000
+
+API_NAME: api-auth
+API_TAG_NAME: authentification
+
+URL_API_GATEWAY: https://api.karned.bzh

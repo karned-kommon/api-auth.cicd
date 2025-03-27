@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.AppName }}
+  namespace: {{ .Values.NameSpace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.AppName }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.AppName }}
+    spec:
+      containers:
+      - name: {{ .Values.AppName }}
+        image: {{ .Values.DockerImage }}
+        ports:
+        - containerPort: {{ .Values.Port }}
+        env:
+          - name: API_NAME
+            value: {{ .Values.API_NAME }}
+          - name: API_TAG_NAME
+            value: {{ .Values.API_TAG_NAME }}
+          - name: URL_API_GATEWAY
+            value: {{ .Values.URL_API_GATEWAY }}
+          - name: KEYCLOAK_HOST
+            valueFrom:
+              secretKeyRef:
+                name: keycloak-secret
+                key: KEYCLOAK_HOST
+          - name: KEYCLOAK_REALM
+            valueFrom:
+              secretKeyRef:
+                name: keycloak-secret
+                key: KEYCLOAK_REALM
+          - name: KEYCLOAK_CLIENT_ID
+            valueFrom:
+              secretKeyRef:
+                name: keycloak-secret
+                key: KEYCLOAK_CLIENT_ID
+          - name: KEYCLOAK_CLIENT_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: keycloak-secret
+                key: KEYCLOAK_CLIENT_SECRET
