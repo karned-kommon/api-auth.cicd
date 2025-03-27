@@ -6,7 +6,7 @@ metadata:
 spec:
   project: karned
   source:
-    repoURL: "https://github.com/karned-rekipe/api-auth.cicd.git"
+    repoURL: "https://github.com/karned-kommon/api-auth.cicd.git"
     targetRevision: main
     path: CD/helm
   destination:
