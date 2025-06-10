@@ -1,7 +1,7 @@
 NameSpace: karned
 AppName: api-auth
 
-DockerImage: killiankopp/api-auth:1.0.1
+DockerImage: killiankopp/api-auth:1.1.0
 
 Port: 8000
 
